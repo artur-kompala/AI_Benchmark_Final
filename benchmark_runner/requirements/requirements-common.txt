@@ -1,0 +1,36 @@
+# Wspolne zaleznosci dla wszystkich maszyn (CPU/NVIDIA/AMD/NPU).
+# torch/torchvision CELOWO NIE SA tutaj - instaluje sie je osobno per maszyna
+# (rozne wheele dla CUDA/ROCm/CPU-only), patrz README.md i docs/setup_windows_gpu.md.
+
+pyyaml>=6.0
+pydantic>=2.6
+python-dotenv>=1.0
+supabase>=2.4
+psutil>=5.9
+py-cpuinfo>=9.0
+thop>=0.1.1
+fvcore>=0.1.5
+numpy>=1.26
+codecarbon>=2.4
+tqdm>=4.66
+transformers>=4.40
+datasets>=2.19
+
+# Faza 5 - zadanie llm_inference (silnik "onnxruntime", dziala na CPU bez dodatkowych
+# plikow). onnxruntime-directml (requirements-npu.txt) jest uzywany zamiast tego pakietu
+# na maszynie NPU. onnx/onnxscript sa tez wymagane przez sciezke eksportu ONNX (Faza 3/5).
+onnx>=1.16
+onnxscript>=0.1
+onnxruntime>=1.17
+onnxconverter-common>=1.14
+
+# Faza 5 - zadanie llm_inference (silnik "llama_cpp", opcjonalny - wymaga samodzielnie
+# dostarczonego pliku .gguf). Instalacja moze wymagac narzedzi kompilacji na niektorych
+# platformach - jesli instalacja zawiedzie, funkcje CLI dzialaja dalej, po prostu silnik
+# 'llama_cpp' zglosi czytelny blad importu przy probie uzycia (patrz README).
+llama-cpp-python>=0.2
+
+# Faza 4 - watomierz fizyczny Tuya (np. ATORCH S1), lokalny protokol bez chmury
+# podczas pomiaru. Opcjonalny - gdy TUYA_* nie sa ustawione w .env, runner gracefully
+# wraca do trybu manualnego (patrz docs/setup_smart_plug.md).
+tinytuya>=1.13

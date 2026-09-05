@@ -1,0 +1,9 @@
+# Zaleznosci dla maszyny z GPU AMD.
+# UWAGA: torch/torchvision z obsluga ROCm instaluj OSOBNO, PRZED tym plikiem.
+# Oficjalne wsparcie torch+ROCm na Windows jest ograniczone - moze wymagac WSL2.
+# Patrz docs/setup_windows_gpu.md (sekcja AMD) po szczegoly obu wariantow.
+
+pyamdgpuinfo>=2.1; sys_platform == "linux"
+# Na Windows (natywnie, poza WSL2) pyamdgpuinfo moze byc niedostepny - w takim
+# wypadku rocm_smi_meter.py automatycznie sprobuje subprocess `rocm-smi --showpower --json`
+# jako fallback (patrz src/benchmark_runner/power/rocm_smi_meter.py).

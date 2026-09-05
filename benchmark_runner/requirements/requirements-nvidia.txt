@@ -1,0 +1,6 @@
+# Zaleznosci dla maszyny z GPU NVIDIA.
+# UWAGA: torch/torchvision instaluj OSOBNO, PRZED tym plikiem, z indeksu CUDA, np.:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# Patrz docs/setup_windows_gpu.md po szczegoly i aktualny numer wersji CUDA.
+
+pynvml>=11.5

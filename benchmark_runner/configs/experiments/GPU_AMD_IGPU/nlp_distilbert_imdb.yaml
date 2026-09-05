@@ -1,0 +1,69 @@
+# EKSPERYMENTALNE: uzyj na laptopie ze zintegrowanym GPU AMD (Radeon Vega w Ryzen
+# 5000H, Radeon 780M w Ryzen 7040/8040 itd.) - device na sztywno "amd_igpu". Batch_size/
+# precisions CELOWO identyczne jak w ../CPU/nlp_distilbert_imdb.yaml i
+# ../GPU_AMD/nlp_distilbert_imdb.yaml - dla poprawnego porownania urzadzen w pracy wazne
+# jest, zeby macierz eksperymentow byla ta sama.
+#
+# Status compute (backend="pytorch" przez torch+ROCm, patrz devices/amd_igpu.py): faza
+# INFERENCE dla image_classification zweryfikowana na maszynie testowej "Ola" (Ryzen 7
+# 5800HS/iGPU Vega, gfx90c) z torch+rocm6.2 w OSOBNYM venv i
+# HSA_OVERRIDE_GFX_VERSION=9.0.0 (patrz komentarz w
+# ../image_classification_resnet50_cifar10.yaml). DistilBERT (ten plik) NIE zostal
+# jeszcze przetestowany osobno - powinien dzialac tym samym mechanizmem (zwykle
+# torch.nn.Linear/Attention na urzadzeniu cuda:N), ale nie zakladaj tego bez wlasnej
+# weryfikacji na tej konkretnej maszynie. Faza TRAIN (fine-tuning) pozostaje wylaczona
+# ponizej - NIE zweryfikowana, patrz docs/setup_amd_igpu.md.
+#
+# Pomiar mocy (power_meter.amd_igpu_sources) dziala niezaleznie od statusu compute -
+# zweryfikowane, patrz docs/setup_amd_igpu.md i docs/measurement_methodology.md.
+# measurement_scope zawsze "whole_system" (PPT = pobor calego SoC, nie samego GPU).
+
+experiment_name: "nlp_distilbert_imdb_gpu_amd_igpu_v1"
+
+task: "nlp_sentiment"
+dataset: "imdb"
+
+models:
+  - "distilbert-base-uncased"
+
+devices:
+  - amd_igpu
+
+precisions: ["fp32", "fp16"]
+batch_sizes: [1, 4, 8, 16]
+
+# TYLKO inference - patrz komentarz na gorze pliku (train niezweryfikowany na tej sciezce).
+phases: ["inference"]
+
+repetitions: 3
+
+train:
+  num_epochs: 1
+  learning_rate: 0.00005
+  optimizer: "adamw"
+
+inference:
+  num_iterations: 20
+
+warmup:
+  enabled: true
+  iterations: 3
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  amd_igpu_sources: ["amdgpu_igpu_native", "amd_igpu_whole_system"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

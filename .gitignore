@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+*/venv/
+*/.venv/
+venv-*/
+*/venv-*/
+
+# Environment secrets
+.env
+*/.env
+tinytuya.json
+tuya-raw.json
+devices.json
+*/tinytuya.json
+*/tuya-raw.json
+*/devices.json
+
+# Local benchmark buffers / caches
+.local_buffer/
+*/.local_buffer/
+data/
+*/data/
+.cache/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Runner logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model artifacts / exports (large binaries, not source)
+*.onnx
+*.gguf
+*.pt
+*.pth

@@ -1,0 +1,6 @@
+# Przyklad nadpisania auto-detekcji urzadzenia w configu eksperymentu.
+# Skopiuj interesujacy Cie config z configs/experiments/ i podmien pole "devices"
+# tak jak ponizej, albo uzyj flagi CLI: --device cpu (nadpisuje wszystkie wpisy w configu).
+
+devices:
+  - cpu

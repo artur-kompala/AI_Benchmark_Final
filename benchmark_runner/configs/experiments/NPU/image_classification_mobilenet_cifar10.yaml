@@ -1,0 +1,63 @@
+# Uzyj na laptopie z Intel Core Ultra (NPU) - device jest tu na sztywno ustawiony na
+# "npu_openvino". Roznice wzgledem wariantow CPU/GPU (patrz ../CPU, ../GPU_NVIDIA):
+#   - phases zawiera TYLKO "inference" - NPU w tym ekosystemie nie wspiera treningu
+#     (proba faza=train zakonczy sie czytelnym, udokumentowanym bledem w runs.status),
+#   - precisions ograniczone do fp32 - int8/int4 (kwantyzacja NNCF) sa planowane
+#     w kolejnej iteracji,
+#   - measurement_scope dla tych przebiegow bedzie "whole_system" (fallback przez
+#     pomiar rozladowania baterii - patrz docs/measurement_methodology.md), wiec dla
+#     wiarygodnego pomiaru mocy programowego odlacz zasilacz przed uruchomieniem
+#     (watomierz fizyczny Tuya dziala niezaleznie od trybu zasilania).
+
+experiment_name: "image_classification_mobilenet_cifar10_npu_v1"
+
+task: "image_classification"
+dataset: "cifar10"
+
+models:
+  - "mobilenet_v3"
+
+devices:
+  - npu_openvino
+
+precisions: ["fp32"]
+# 1 i 4 dolaczone obok 32/64 - patrz komentarz w
+# ../CPU/image_classification_mobilenet_cifar10.yaml (hipoteza o przewadze CPU przy
+# malych batchach). Ta sama macierz batch_sizes w kazdym folderze urzadzenia.
+batch_sizes: [1, 4, 32, 64]
+
+phases: ["inference"]
+
+# 3 niezalezne powtorzenia kazdej kombinacji (model x device x precision x batch_size x
+# phase), zeby policzyc odchylenie std/wariancje - patrz docs/measurement_methodology.md.
+repetitions: 3
+
+train:
+  num_epochs: 1
+  learning_rate: 0.001
+  optimizer: "adam"
+
+inference:
+  num_iterations: 50
+
+warmup:
+  enabled: true
+  iterations: 5
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

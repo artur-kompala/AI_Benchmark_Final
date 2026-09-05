@@ -1,0 +1,64 @@
+# Uzyj na laptopie/PC z Intel GPU (zintegrowane Iris Xe/Arc lub dyskretne Arc A-/B-series) -
+# device jest tu na sztywno ustawiony na "intel_gpu_openvino". Ta sama sciezka wykonania co
+# NPU (patrz ../NPU/image_classification_mobilenet_cifar10.yaml) - OpenVINO GPU plugin,
+# TYLKO inferencja, fp32. Kategoria dyskretne/zintegrowane jest wykrywana automatycznie
+# (devices/intel_gpu.py, natywna wlasciwosc OpenVINO DEVICE_TYPE) i widoczna w dashboardzie
+# jako devices.gpu_category - NIE trzeba tego rozroznic tutaj w configu.
+#
+# Roznice wzgledem wariantow CPU/GPU_NVIDIA/GPU_AMD (patrz ../CPU, ../GPU_NVIDIA):
+#   - phases zawiera TYLKO "inference" - ta sciezka nie wspiera treningu,
+#   - precisions ograniczone do fp32 - int8/int4 (kwantyzacja NNCF) sa planowane
+#     w kolejnej iteracji,
+#   - measurement_scope dla tych przebiegow bedzie "whole_system" (fallback przez
+#     pomiar rozladowania baterii - patrz docs/measurement_methodology.md), wiec dla
+#     wiarygodnego pomiaru mocy programowego odlacz zasilacz przed uruchomieniem
+#     (watomierz fizyczny Tuya dziala niezaleznie od trybu zasilania, jesli dostepny).
+
+experiment_name: "image_classification_mobilenet_cifar10_gpu_intel_v1"
+
+task: "image_classification"
+dataset: "cifar10"
+
+models:
+  - "mobilenet_v3"
+
+devices:
+  - intel_gpu_openvino
+
+precisions: ["fp32"]
+batch_sizes: [1, 4, 32, 64]
+
+phases: ["inference"]
+
+repetitions: 3
+
+train:
+  num_epochs: 1
+  learning_rate: 0.001
+  optimizer: "adam"
+
+inference:
+  num_iterations: 50
+
+warmup:
+  enabled: true
+  iterations: 5
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  intel_gpu_sources: ["intel_gpu_native"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

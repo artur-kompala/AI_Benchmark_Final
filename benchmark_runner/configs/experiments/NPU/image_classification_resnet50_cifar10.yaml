@@ -1,0 +1,68 @@
+# Uzyj na laptopie z Intel Core Ultra (NPU) - device jest tu na sztywno ustawiony na
+# "npu_openvino". Drugi model klasyfikacji obrazow obok MobileNetV3 (patrz
+# ../NPU/image_classification_mobilenet_cifar10.yaml) - ResNet-50 zaadaptowany pod CIFAR-10
+# (32x32): pierwsza warstwa konwolucyjna zmniejszona z 7x7/stride2 do 3x3/stride1 i usuniety
+# pierwszy maxpool (patrz tasks/image_classification/models.py:build_resnet50). Roznice
+# wzgledem wariantow CPU/GPU (patrz ../CPU, ../GPU_NVIDIA) sa te same co dla MobileNet na NPU:
+#   - phases zawiera TYLKO "inference" - NPU w tym ekosystemie nie wspiera treningu,
+#   - precisions ograniczone do fp32 - int8/int4 (kwantyzacja NNCF) sa planowane
+#     w kolejnej iteracji,
+#   - measurement_scope dla tych przebiegow bedzie "whole_system" (fallback przez
+#     pomiar rozladowania baterii - patrz docs/measurement_methodology.md), wiec dla
+#     wiarygodnego pomiaru mocy programowego odlacz zasilacz przed uruchomieniem.
+#
+# num_epochs ponizej jest nieuzywany (brak fazy "train" na NPU), ale ustawiony na 2 - tak jak
+# w wariantach CPU/GPU tego modelu - dla spojnosci configu. repetitions=2 (zamiast 3 jak dla
+# MobileNet na NPU) - ResNet-50 jest wolniejszy rowniez w inferencji (glebsza siec), patrz
+# docs/measurement_methodology.md.
+
+experiment_name: "image_classification_resnet50_cifar10_npu_v1"
+
+task: "image_classification"
+dataset: "cifar10"
+
+models:
+  - "resnet50"
+
+devices:
+  - npu_openvino
+
+precisions: ["fp32"]
+# 1 i 4 dolaczone obok 32/64 - patrz komentarz w
+# ../CPU/image_classification_mobilenet_cifar10.yaml (hipoteza o przewadze CPU przy
+# malych batchach).
+batch_sizes: [1, 4, 32, 64]
+
+phases: ["inference"]
+
+repetitions: 2
+
+train:
+  num_epochs: 2
+  learning_rate: 0.001
+  optimizer: "adam"
+
+inference:
+  num_iterations: 50
+
+warmup:
+  enabled: true
+  iterations: 5
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

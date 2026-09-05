@@ -1,0 +1,64 @@
+# Uzyj na dowolnej maszynie - device jest tu na sztywno ustawiony na "cpu". Zeby
+# porownac z GPU na tej samej maszynie, uzyj odpowiedniego configu z ../GPU_NVIDIA
+# lub ../GPU_AMD zamiast edytowac ten plik.
+#
+# "int8" w precisions jest CELOWO tylko w tym (CPU/) folderze - dynamiczna kwantyzacja
+# PyTorch dziala tylko na CPU (patrz komentarz w
+# ../CPU/image_classification_mobilenet_cifar10.yaml). Dotyczy tylko inferencji -
+# int8+train jest automatycznie pomijane przez runner.
+
+experiment_name: "nlp_distilbert_imdb_cpu_v1"
+
+task: "nlp_sentiment"
+dataset: "imdb"
+
+# Pole "models" jest wymagane przez schemat configu, ale NlpSentimentTask uzywa
+# zawsze distilbert-base-uncased (patrz tasks/nlp_sentiment/data.py) - wartosc tutaj
+# sluzy jedynie jako etykieta w wynikach (runs.model_name).
+models:
+  - "distilbert-base-uncased"
+
+devices:
+  - cpu
+
+precisions: ["fp32", "fp16", "int8"]
+# 1 i 4 dolaczone obok 8/16 - patrz komentarz w
+# ../CPU/image_classification_mobilenet_cifar10.yaml (hipoteza o przewadze CPU przy
+# malych batchach). Ta sama macierz batch_sizes w kazdym folderze urzadzenia.
+batch_sizes: [1, 4, 8, 16]
+
+phases: ["train", "inference"]
+
+# 3 niezalezne powtorzenia kazdej kombinacji (model x device x precision x batch_size x
+# phase), zeby policzyc odchylenie std/wariancje - patrz docs/measurement_methodology.md.
+repetitions: 3
+
+train:
+  num_epochs: 1
+  learning_rate: 0.00005
+  optimizer: "adamw"
+
+inference:
+  num_iterations: 20
+
+warmup:
+  enabled: true
+  iterations: 3
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

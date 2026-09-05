@@ -1,0 +1,71 @@
+# Uzyj na dowolnej maszynie - device jest tu na sztywno ustawiony na "cpu". Drugi model
+# klasyfikacji obrazow obok MobileNetV3 (../CPU/image_classification_mobilenet_cifar10.yaml)
+# - ResNet-50 to znaczaco wiekszy/kosztowniejszy model, zaadaptowany pod CIFAR-10 (32x32):
+# pierwsza warstwa konwolucyjna zmniejszona z 7x7/stride2 do 3x3/stride1 i usuniety pierwszy
+# maxpool (patrz tasks/image_classification/models.py:build_resnet50) - standardowa praktyka
+# przy uzyciu ResNet na malych obrazach, zeby nie stracic calej rozdzielczosci przestrzennej
+# jeszcze przed pierwszym blokiem resztkowym. Batch_sizes/precisions sa CELOWO identyczne jak
+# w wariancie MobileNet - dla miarodajnego porownania modeli w pracy.
+#
+# num_epochs=2 (ZAMIAST 5 jak w MobileNet) - CELOWA redukcja, nie pomylka: ResNet-50 ma
+# znacznie wyzszy koszt obliczeniowy na epoke niz MobileNetV3 (25M vs ~2.5M parametrow,
+# glebsza siec), a przy 5 epokach x pelny sweep (2 precyzje x 2 batch_size x 2 fazy x
+# repetitions x wiele maszyn testowych) czas wykonania calej serii bylby nierealny w ramach
+# harmonogramu pracy. repetitions=2 (zamiast 3 jak w innych configach) z tego samego powodu -
+# patrz docs/measurement_methodology.md ("Powtorzenia pomiarow i statystyka").
+#
+# "int8" w precisions jest CELOWO tylko w tym (CPU/) folderze - dynamiczna kwantyzacja
+# PyTorch dziala tylko na CPU (patrz komentarz w ../CPU/image_classification_mobilenet_cifar10.yaml).
+# Dotyczy tylko inferencji - int8+train jest automatycznie pomijane przez runner.
+
+experiment_name: "image_classification_resnet50_cifar10_cpu_v1"
+
+task: "image_classification"
+dataset: "cifar10"
+
+models:
+  - "resnet50"
+
+devices:
+  - cpu
+
+precisions: ["fp32", "fp16", "int8"]
+# 1 i 4 dolaczone obok 32/64 - patrz komentarz w
+# ../CPU/image_classification_mobilenet_cifar10.yaml (hipoteza o przewadze CPU przy
+# malych batchach, szczegolnie istotne tu: hipoteza pracy dotyczy wprost modeli o
+# umiarkowanej zlozonosci = ResNet-50 przy malym batchu).
+batch_sizes: [1, 4, 32, 64]
+
+phases: ["train", "inference"]
+
+repetitions: 2
+
+train:
+  num_epochs: 2
+  learning_rate: 0.001
+  optimizer: "adam"
+
+inference:
+  num_iterations: 50
+
+warmup:
+  enabled: true
+  iterations: 5
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

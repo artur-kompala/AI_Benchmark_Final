@@ -1,0 +1,72 @@
+# Uzyj na dowolnej maszynie - device jest tu na sztywno ustawiony na "cpu", wiec ten
+# sam plik dziala identycznie niezaleznie od tego, jaki (jesli w ogole) GPU/NPU ma
+# dana maszyna. Zeby porownac z GPU/NPU na tej samej maszynie, uzyj odpowiedniego
+# configu z ../GPU_NVIDIA, ../GPU_AMD lub ../NPU zamiast edytowac ten plik.
+#
+# "int8" w precisions ponizej jest CELOWO tylko w tym (CPU/) folderze - dynamiczna
+# kwantyzacja PyTorch (torch.quantization.quantize_dynamic, patrz utils/quantization.py)
+# uzywa kerneli FBGEMM/QNNPACK, ktore dzialaja tylko na CPU; config z device=cuda/rocm i
+# int8 liczylby sie i tak na CPU, co mylnie etykietowaloby wynik w bazie. int8 dotyczy
+# tylko fazy inference - kombinacje int8+train sa automatycznie pomijane przez runner
+# (patrz orchestrator._filter_unsupported_combos), nie trzeba ich usuwac recznie z macierzy.
+
+experiment_name: "image_classification_mobilenet_cifar10_cpu_v1"
+
+task: "image_classification"
+dataset: "cifar10"
+
+models:
+  - "mobilenet_v3"
+
+devices:
+  - cpu
+
+precisions: ["fp32", "fp16", "int8"]
+# 1 i 4 dolaczone CELOWO obok 32/64: hipoteza pracy dotyczy przewagi energetycznej CPU
+# nad GPU przy MALYCH batchach (gdzie narzut uruchomienia kernela na GPU zaczyna
+# dominowac nad realna praca) - bez niskiego konca zakresu nie da sie tej hipotezy ani
+# potwierdzic, ani obalic. Ta sama macierz batch_sizes w kazdym folderze urzadzenia.
+#
+# UWAGA: batch_size=1 + phase=train jest automatycznie pomijane przez runner (patrz
+# orchestrator._filter_unsupported_combos) - BatchNorm (uzywany przez MobileNetV3 i
+# ResNet-50) liczy statystyki PO BATCHU podczas treningu i wymaga batch_size>1
+# ("Expected more than 1 value per channel when training"). Dotyczy TYLKO treningu -
+# inferencja z batch_size=1 dziala normalnie (BatchNorm uzywa juz zapisanych
+# running_mean/running_var), wiec batch_size=1 nadal daje dane dla fazy inference.
+batch_sizes: [1, 4, 32, 64]
+
+phases: ["train", "inference"]
+
+# 3 niezalezne powtorzenia kazdej kombinacji (model x device x precision x batch_size x
+# phase), zeby policzyc odchylenie std/wariancje - patrz docs/measurement_methodology.md.
+repetitions: 3
+
+train:
+  num_epochs: 5
+  learning_rate: 0.001
+  optimizer: "adam"
+
+inference:
+  num_iterations: 50
+
+warmup:
+  enabled: true
+  iterations: 5
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

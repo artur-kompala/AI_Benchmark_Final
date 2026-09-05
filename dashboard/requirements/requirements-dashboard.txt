@@ -1,0 +1,9 @@
+# Faza 5 - dashboard Streamlit (tylko odczyt z Supabase)
+streamlit
+supabase
+python-dotenv
+pandas
+plotly
+kaleido
+openpyxl
+pytest  # testy offline

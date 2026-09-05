@@ -1,0 +1,67 @@
+# LLM inference (silnik ONNX Runtime, fp32/int8 w locie) - dziala tylko na CPU
+# execution provider obecnie (patrz tasks/llm_inference/backends/onnxruntime_backend.py),
+# dlatego ten config istnieje TYLKO w folderze CPU/ - w folderach GPU_*/NPU/ nie
+# przynioslby realnego przyspieszenia sprzetowego (patrz README.md w tych folderach).
+#
+# Domyslnie silnik "onnxruntime" (eksport + kwantyzacja w locie, nie wymaga zadnych
+# dodatkowych plikow od uzytkownika). Zeby uzyc silnika "llama_cpp" (pliki GGUF),
+# zmien llm.engine na "llama_cpp" i ustaw llm.gguf_model_path na sciezke do
+# samodzielnie pobranego pliku .gguf (rozne pliki = rozne precyzje, np. Q8_0/Q4_K_M).
+
+experiment_name: "llm_inference_quantized_cpu_v1"
+
+task: "llm_inference"
+dataset: null
+
+# Pole wymagane przez schemat, ale llm_inference uzywa llm.hf_model_name / llm.gguf_model_path
+# - wartosc tutaj sluzy jedynie jako etykieta w wynikach (runs.model_name).
+models:
+  - "tiny-gpt2"
+
+devices:
+  - cpu
+
+# fp32 = model bazowy, fp16 = konwersja wag (emulacja na CPU), int8 = dynamiczna
+# kwantyzacja (onnxruntime.quantization). int4 nie jest jeszcze wspierane - patrz
+# ostrzezenie w logu, uruchomienie spadnie do fp32.
+precisions: ["fp32", "int8"]
+
+# Nieuzywane przez llm_inference (ignorowane) - wymagane przez schemat configu.
+batch_sizes: [1]
+
+phases: ["inference"]
+
+# 3 niezalezne powtorzenia kazdej kombinacji (model x device x precision x batch_size x
+# phase), zeby policzyc odchylenie std/wariancje - patrz docs/measurement_methodology.md.
+repetitions: 3
+
+inference:
+  num_iterations: 5
+
+warmup:
+  enabled: true
+  iterations: 2
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+llm:
+  engine: "onnxruntime"
+  hf_model_name: "sshleifer/tiny-gpt2"
+  gguf_model_path: null
+  max_new_tokens: 16
+
+seed: 42

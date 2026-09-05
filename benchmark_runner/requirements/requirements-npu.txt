@@ -1,0 +1,18 @@
+# Faza 3 - zaleznosci dla laptopa z Intel NPU. Patrz docs/setup_npu_intel.md.
+# torch/torchvision instaluj tak jak dla CPU (patrz requirements-common.txt) - sluza
+# do zbudowania i eksportu modelu do ONNX, faktyczna inferencja idzie przez OpenVINO/
+# ONNX Runtime ponizej, nie przez torch bezposrednio.
+#
+# WAZNE - KOLEJNOSC INSTALACJI: zainstaluj ten plik PO requirements-common.txt.
+# 'onnxruntime' (z common) i 'onnxruntime-directml' (ponizej) to rozne pakiety pip,
+# ktore instaluja sie pod ta sama nazwa modulu 'onnxruntime' - ten zainstalowany jako
+# drugi "wygrywa". onnxruntime-directml zawiera rowniez standardowy CPUExecutionProvider,
+# wiec instalujac go po common.txt nic nie tracisz, a zyskujesz DmlExecutionProvider dla NPU.
+
+openvino>=2024.0
+onnx>=1.16
+onnxscript>=0.1  # wymagane przez domyslny (dynamo) eksporter torch.onnx.export od torch 2.x
+onnxruntime-directml>=1.17
+# optimum[openvino] uproszcza eksport modeli Hugging Face (transformers) do OpenVINO -
+# nieuzywane jeszcze przez image_classification, przyda sie przy zadaniu NLP w Fazie 5.
+optimum[openvino]>=1.19

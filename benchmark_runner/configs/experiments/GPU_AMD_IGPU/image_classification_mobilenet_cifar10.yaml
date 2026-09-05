@@ -1,0 +1,74 @@
+# EKSPERYMENTALNE: uzyj na laptopie ze zintegrowanym GPU AMD (Radeon Vega w Ryzen 5000H,
+# Radeon 780M w Ryzen 7040/8040 itd.) - device jest tu na sztywno ustawiony na "amd_igpu".
+# Status compute (backend="pytorch" przez torch+ROCm, patrz devices/amd_igpu.py): faza
+# INFERENCE dla tego configu (mobilenet_v3, wszystkie 4 batch_size) ZWERYFIKOWANA i dziala
+# poprawnie na maszynie testowej "Ola" (Ryzen 7 5800HS/iGPU Vega, architektura gfx90c) -
+# wymaga OSOBNEGO venv z torch+ROCm (nie da sie tego pogodzic w jednym srodowisku z
+# torch+CUDA uzywanym dla dyskretnego GPU NVIDIA na tej samej maszynie, patrz
+# ../GPU_NVIDIA/) oraz HSA_OVERRIDE_GFX_VERSION=9.0.0 (na ROCm 6.2 rocBLAS nie ma natywnej
+# biblioteki Tensile dla gfx90c, ale override na gfx900 dziala). Faza TRAIN pozostaje
+# wylaczona ponizej - NIE zweryfikowana. Pelne instrukcje: docs/setup_amd_igpu.md.
+#
+# Pomiar mocy (power_meter.amd_igpu_sources) DZIALA NIEZALEZNIE od powyzszego - sterownik
+# jadra amdgpu wystawia moc SoC (PPT, Package Power Tracking) przez hwmon niezaleznie od
+# tego, czy ROCm w ogole widzi urzadzenie jako compute - zweryfikowane bezposrednio na
+# maszynie testowej "Ola" (Ryzen 7 5800HS/iGPU Vega): dziala i zwraca sensowne wartosci,
+# bez wzgledu na status ROCm. measurement_scope dla tych przebiegow to zawsze
+# "whole_system" - PPT to pobor calego SoC (CPU+iGPU), nie samego bloku graficznego, patrz
+# docs/measurement_methodology.md.
+#
+# Ten sam checkpoint referencyjny co CPU/GPU_NVIDIA/GPU_AMD/GPU_INTEL wymagany dla fazy
+# inference (patrz tasks/image_classification/onnx_export.py::load_reference_checkpoint,
+# data/checkpoints/mobilenet_v3_cifar10_seed42.pt) - musi byc skopiowany na te maszyne.
+
+experiment_name: "image_classification_mobilenet_cifar10_gpu_amd_igpu_v1"
+
+task: "image_classification"
+dataset: "cifar10"
+
+models:
+  - "mobilenet_v3"
+
+devices:
+  - amd_igpu
+
+precisions: ["fp32"]
+batch_sizes: [1, 4, 32, 64]
+
+# TYLKO inference - jak GPU_INTEL/NPU, i dodatkowo bo faza train na niezweryfikowanym
+# backendzie compute jest zbyt ryzykowna do uruchamiania bez nadzoru (dluzszy czas,
+# wieksze prawdopodobienstwo, ze cos sie nie uda w polowie serii).
+phases: ["inference"]
+
+repetitions: 3
+
+train:
+  num_epochs: 1
+  learning_rate: 0.001
+  optimizer: "adam"
+
+inference:
+  num_iterations: 50
+
+warmup:
+  enabled: true
+  iterations: 5
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  amd_igpu_sources: ["amdgpu_igpu_native", "amd_igpu_whole_system"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

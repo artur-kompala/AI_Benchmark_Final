@@ -1,0 +1,57 @@
+# Uzyj na PC z GPU AMD - device jest tu na sztywno ustawiony na "rocm". Batch_size/
+# precisions/phases sa CELOWO identyczne jak w ../CPU/nlp_distilbert_imdb.yaml - dla
+# poprawnego porownania urzadzen w pracy wazne jest, zeby macierz eksperymentow byla
+# ta sama miedzy nimi.
+
+experiment_name: "nlp_distilbert_imdb_gpu_amd_v1"
+
+task: "nlp_sentiment"
+dataset: "imdb"
+
+models:
+  - "distilbert-base-uncased"
+
+devices:
+  - rocm
+
+precisions: ["fp32", "fp16"]
+# 1 i 4 dolaczone obok 8/16 - patrz komentarz w
+# ../CPU/image_classification_mobilenet_cifar10.yaml (hipoteza o przewadze CPU przy
+# malych batchach).
+batch_sizes: [1, 4, 8, 16]
+
+phases: ["train", "inference"]
+
+# 3 niezalezne powtorzenia kazdej kombinacji (model x device x precision x batch_size x
+# phase), zeby policzyc odchylenie std/wariancje - patrz docs/measurement_methodology.md.
+repetitions: 3
+
+train:
+  num_epochs: 1
+  learning_rate: 0.00005
+  optimizer: "adamw"
+
+inference:
+  num_iterations: 20
+
+warmup:
+  enabled: true
+  iterations: 3
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["rocm_smi"]
+  npu_sources: ["npu_native"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

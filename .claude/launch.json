@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /home/artur/Desktop/AI_Benchmark_Final/dashboard && exec venv/bin/streamlit run src/dashboard/app.py --server.port 8501 --server.headless true"
+      ],
+      "port": 8501
+    }
+  ]
+}

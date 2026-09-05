@@ -1,0 +1,76 @@
+# EKSPERYMENTALNE: uzyj na laptopie ze zintegrowanym GPU AMD (Radeon Vega w Ryzen
+# 5000H, Radeon 780M w Ryzen 7040/8040 itd.) - device na sztywno "amd_igpu". Drugi model
+# klasyfikacji obrazow obok MobileNetV3 (image_classification_mobilenet_cifar10.yaml) -
+# ResNet-50 zaadaptowany pod CIFAR-10 (32x32), patrz tasks/image_classification/models.py:
+# build_resnet50. Batch_sizes/precisions CELOWO identyczne jak w wariancie MobileNet i w
+# ../GPU_AMD/image_classification_resnet50_cifar10.yaml - dla poprawnego porownania modeli
+# i urzadzen w pracy wazne jest, zeby macierz eksperymentow byla ta sama.
+#
+# num_epochs=2 (jak w ../CPU/ i ../GPU_AMD/ wariancie ResNet-50) - CELOWA redukcja wzgledem
+# MobileNet, patrz docs/measurement_methodology.md.
+#
+# Status compute (backend="pytorch" przez torch+ROCm, patrz devices/amd_igpu.py): faza
+# INFERENCE zweryfikowana i dziala na maszynie testowej "Ola" (Ryzen 7 5800HS/iGPU Vega,
+# gfx90c) z torch+rocm6.2 w OSOBNYM venv i HSA_OVERRIDE_GFX_VERSION=9.0.0 (rocBLAS na tym
+# ROCm nie ma natywnej biblioteki Tensile dla gfx90c - override na gfx900 dziala). Faza
+# TRAIN pozostaje wylaczona ponizej - NIE zweryfikowana (dluzsza, bardziej wymagajaca
+# sciezka, wiekszy koszt nieudanej probki calej serii), patrz docs/setup_amd_igpu.md. Jesli
+# zweryfikujesz train na swoim sprzecie, dopisz "train" do phases nizej i zaktualizuj
+# dokumentacje.
+#
+# Pomiar mocy (power_meter.amd_igpu_sources) dziala niezaleznie od statusu compute -
+# zweryfikowane, patrz docs/setup_amd_igpu.md i docs/measurement_methodology.md.
+# measurement_scope zawsze "whole_system" (PPT = pobor calego SoC, nie samego GPU).
+#
+# Ten sam checkpoint referencyjny co CPU/GPU_NVIDIA/GPU_AMD/GPU_INTEL wymagany dla fazy
+# inference - musi byc skopiowany na te maszyne.
+
+experiment_name: "image_classification_resnet50_cifar10_gpu_amd_igpu_v1"
+
+task: "image_classification"
+dataset: "cifar10"
+
+models:
+  - "resnet50"
+
+devices:
+  - amd_igpu
+
+precisions: ["fp32", "fp16"]
+batch_sizes: [1, 4, 32, 64]
+
+# TYLKO inference - patrz komentarz na gorze pliku (train niezweryfikowany na tej sciezce).
+phases: ["inference"]
+
+repetitions: 2
+
+train:
+  num_epochs: 2
+  learning_rate: 0.001
+  optimizer: "adam"
+
+inference:
+  num_iterations: 50
+
+warmup:
+  enabled: true
+  iterations: 5
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  amd_igpu_sources: ["amdgpu_igpu_native", "amd_igpu_whole_system"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

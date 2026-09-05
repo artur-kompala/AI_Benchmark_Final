@@ -1,0 +1,81 @@
+# Uzyj na laptopie/PC z Intel GPU (zintegrowane Iris Xe/Arc lub dyskretne Arc A-/B-series) -
+# device jest tu na sztywno ustawiony na "intel_gpu_openvino". Ta sama sciezka wykonania co
+# NPU i Intel image_classification (patrz ../GPU_INTEL/image_classification_mobilenet_cifar10.yaml,
+# ../NPU/): OpenVINO GPU plugin, TYLKO inferencja, fp32.
+#
+# STATUS: sam OpenVINO obsluguje modele NLP na Intel GPU (dynamiczne ksztalty wejscia sa
+# funkcja preview), wiec blokada NIE jest po stronie OpenVINO. Brakuje jeszcze wpiecia
+# sciezki OpenVINO/ONNX w samo zadanie: NlpSentimentTask uzywa obecnie wylacznie backendu
+# 'pytorch' (CPU/CUDA/ROCm), a export do ONNX jest przygotowany, ale nie wpiety w
+# run_context - patrz naglowek src/benchmark_runner/tasks/nlp_sentiment/task.py oraz
+# tasks/nlp_sentiment/onnx_export.py. Do czasu domkniecia tej sciezki runner pominie/
+# przerwie przebieg dla device=intel_gpu_openvino + task=nlp_sentiment. Config trzymamy
+# gotowy, zeby po wpieciu wystarczylo go uruchomic bez zmian.
+#
+# Roznice wzgledem wariantow CPU/GPU_NVIDIA/GPU_AMD (patrz ../CPU, ../GPU_NVIDIA):
+#   - phases zawiera TYLKO "inference" - ta sciezka nie wspiera treningu,
+#   - precisions ograniczone do fp32 - int8/int4 (kwantyzacja NNCF) planowane w kolejnej
+#     iteracji, tak jak w Intel image_classification,
+#   - measurement_scope dla tych przebiegow bedzie "whole_system" (fallback przez pomiar
+#     rozladowania baterii - patrz docs/measurement_methodology.md), wiec dla wiarygodnego
+#     pomiaru mocy programowego odlacz zasilacz przed uruchomieniem (watomierz fizyczny
+#     Tuya dziala niezaleznie od trybu zasilania, jesli dostepny).
+#
+# batch_sizes CELOWO identyczne jak w ../CPU/nlp_distilbert_imdb.yaml,
+# ../GPU_NVIDIA/nlp_distilbert_imdb.yaml i ../GPU_AMD/nlp_distilbert_imdb.yaml - dla
+# poprawnego porownania urzadzen w pracy wazne jest, zeby macierz eksperymentow byla ta
+# sama miedzy nimi.
+
+experiment_name: "nlp_distilbert_imdb_gpu_intel_v1"
+
+task: "nlp_sentiment"
+dataset: "imdb"
+
+# Pole "models" jest wymagane przez schemat configu, ale NlpSentimentTask uzywa zawsze
+# distilbert-base-uncased (patrz tasks/nlp_sentiment/data.py) - wartosc tutaj sluzy
+# jedynie jako etykieta w wynikach (runs.model_name).
+models:
+  - "distilbert-base-uncased"
+
+devices:
+  - intel_gpu_openvino
+
+precisions: ["fp32"]
+batch_sizes: [1, 4, 8, 16]
+
+phases: ["inference"]
+
+# 3 niezalezne powtorzenia kazdej kombinacji (model x device x precision x batch_size x
+# phase), zeby policzyc odchylenie std/wariancje - patrz docs/measurement_methodology.md.
+repetitions: 3
+
+train:
+  num_epochs: 1
+  learning_rate: 0.00005
+  optimizer: "adamw"
+
+inference:
+  num_iterations: 20
+
+warmup:
+  enabled: true
+  iterations: 3
+
+power_meter:
+  sampling_interval_ms: 100
+  cpu_sources: ["zenpower", "rapl", "codecarbon"]
+  gpu_sources: ["nvml"]
+  npu_sources: ["npu_native"]
+  intel_gpu_sources: ["intel_gpu_native"]
+  smart_plug:
+    backend: "tuya"
+    enabled: true
+
+temperature_logging:
+  enabled: true
+
+output:
+  save_to_supabase: true
+  local_buffer_path: "./.local_buffer/"
+
+seed: 42

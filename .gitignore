@@ -27,9 +27,7 @@ devices.json
 # Local benchmark buffers / caches
 .local_buffer/
 */.local_buffer/
-data/
-*/data/
-.cache/
+
 
 # Test / coverage
 .pytest_cache/
@@ -54,3 +52,12 @@ Thumbs.db
 *.gguf
 *.pt
 *.pth
+
+# ...except the reference training checkpoints — kept in the repo so they can
+# be cloned on another machine
+!benchmark_runner/data/checkpoints/*.pt
+!benchmark_runner/data/checkpoints/*.pth
+
+# Raw CIFAR-10 dataset — auto-downloaded by torchvision, too big for GitHub
+# (cifar-10-python.tar.gz is 163 MB > GitHub's 100 MB file limit)
+benchmark_runner/data/cifar10/
